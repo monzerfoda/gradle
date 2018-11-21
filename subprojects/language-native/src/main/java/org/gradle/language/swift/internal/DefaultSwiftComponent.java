@@ -30,7 +30,6 @@ import org.gradle.language.swift.SwiftBinary;
 import org.gradle.language.swift.SwiftComponent;
 import org.gradle.language.swift.SwiftVersion;
 import org.gradle.nativeplatform.TargetMachine;
-import org.gradle.nativeplatform.TargetMachineFactory;
 
 import java.util.Collections;
 
