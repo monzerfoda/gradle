@@ -16,6 +16,7 @@
 
 package org.gradle.language.cpp.plugins;
 
+import com.google.common.collect.ImmutableSet;
 import org.gradle.api.Action;
 import org.gradle.api.Incubating;
 import org.gradle.api.Plugin;
@@ -39,6 +40,7 @@ import org.gradle.nativeplatform.MachineArchitecture;
 import org.gradle.nativeplatform.OperatingSystemFamily;
 import org.gradle.nativeplatform.TargetMachine;
 import org.gradle.nativeplatform.TargetMachineFactory;
+import org.gradle.nativeplatform.internal.DefaultTargetMachineFactory;
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform;
 
 import javax.inject.Inject;
@@ -90,6 +92,10 @@ public class CppApplicationPlugin implements Plugin<ProjectInternal> {
         project.afterEvaluate(new Action<Project>() {
             @Override
             public void execute(final Project project) {
+                // Set default value to target machine
+                if (!application.getTargetMachines().isPresent()) {
+                    application.getTargetMachines().set(ImmutableSet.of(((DefaultTargetMachineFactory)targetMachineFactory).host()));
+                }
                 application.getTargetMachines().finalizeValue();
                 Set<TargetMachine> targetMachines = application.getTargetMachines().get();
                 if (targetMachines.isEmpty()) {
@@ -136,7 +142,7 @@ public class CppApplicationPlugin implements Plugin<ProjectInternal> {
 
                             // Use the debug variant as the development binary
                             // Prefer the host architecture, if present, else use the first architecture specified
-                            if (buildType == BuildType.DEBUG && (targetMachine.getArchitecture().equals(targetMachineFactory.host().getArchitecture()) || !application.getDevelopmentBinary().isPresent())) {
+                            if (buildType == BuildType.DEBUG && (targetMachine.getArchitecture().equals(((DefaultTargetMachineFactory)targetMachineFactory).host().getArchitecture()) || !application.getDevelopmentBinary().isPresent())) {
                                 application.getDevelopmentBinary().set(executable);
                             }
 

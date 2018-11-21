@@ -16,6 +16,7 @@
 
 package org.gradle.language.cpp.plugins;
 
+import com.google.common.collect.ImmutableSet;
 import org.gradle.api.Action;
 import org.gradle.api.Incubating;
 import org.gradle.api.Named;
@@ -50,6 +51,7 @@ import org.gradle.nativeplatform.MachineArchitecture;
 import org.gradle.nativeplatform.OperatingSystemFamily;
 import org.gradle.nativeplatform.TargetMachine;
 import org.gradle.nativeplatform.TargetMachineFactory;
+import org.gradle.nativeplatform.internal.DefaultTargetMachineFactory;
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform;
 
 import javax.inject.Inject;
@@ -110,6 +112,10 @@ public class CppLibraryPlugin implements Plugin<ProjectInternal> {
         project.afterEvaluate(new Action<Project>() {
             @Override
             public void execute(final Project project) {
+                // Set default value to target machine
+                if (!library.getTargetMachines().isPresent()) {
+                    library.getTargetMachines().set(ImmutableSet.of(((DefaultTargetMachineFactory)targetMachineFactory).host()));
+                }
                 library.getTargetMachines().finalizeValue();
                 Set<TargetMachine> targetMachines = library.getTargetMachines().get();
                 if (targetMachines.isEmpty()) {
@@ -233,7 +239,7 @@ public class CppLibraryPlugin implements Plugin<ProjectInternal> {
     }
 
     private boolean shouldPrefer(BuildType buildType, TargetMachine targetMachine, CppLibrary library) {
-        return buildType == BuildType.DEBUG && (targetMachine.getArchitecture().equals(targetMachineFactory.host().getArchitecture()) || !library.getDevelopmentBinary().isPresent());
+        return buildType == BuildType.DEBUG && (targetMachine.getArchitecture().equals(((DefaultTargetMachineFactory)targetMachineFactory).host().getArchitecture()) || !library.getDevelopmentBinary().isPresent());
     }
 
     private static final class BuildType implements Named {

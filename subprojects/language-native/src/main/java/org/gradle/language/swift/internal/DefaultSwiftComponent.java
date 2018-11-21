@@ -42,9 +42,8 @@ public abstract class DefaultSwiftComponent extends DefaultNativeComponent imple
     private final Names names;
     private final Property<SwiftVersion> sourceCompatibility;
     private final SetProperty<TargetMachine> targetMachines;
-    private final TargetMachineFactory machines;
 
-    public DefaultSwiftComponent(String name, FileOperations fileOperations, ObjectFactory objectFactory, TargetMachineFactory targetMachineFactory) {
+    public DefaultSwiftComponent(String name, FileOperations fileOperations, ObjectFactory objectFactory) {
         super(fileOperations);
         this.name = name;
         swiftSource = createSourceView("src/"+ name + "/swift", Collections.singletonList("swift"));
@@ -53,9 +52,7 @@ public abstract class DefaultSwiftComponent extends DefaultNativeComponent imple
 
         names = Names.of(name);
         binaries = Cast.uncheckedCast(objectFactory.newInstance(DefaultBinaryCollection.class, SwiftBinary.class));
-        this.machines = targetMachineFactory;
         targetMachines = objectFactory.setProperty(TargetMachine.class);
-        targetMachines.set(Collections.singleton(machines.host()));
     }
 
     @Override
