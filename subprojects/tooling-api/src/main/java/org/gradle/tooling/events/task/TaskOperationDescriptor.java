@@ -15,7 +15,11 @@
  */
 package org.gradle.tooling.events.task;
 
+import org.gradle.api.Incubating;
 import org.gradle.tooling.events.OperationDescriptor;
+
+import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * Describes a task operation for which an event has occurred.
@@ -23,8 +27,22 @@ import org.gradle.tooling.events.OperationDescriptor;
  * @since 2.5
  */
 public interface TaskOperationDescriptor extends OperationDescriptor {
+
     /**
      * Returns the path of the task.
      */
     String getTaskPath();
+
+    /**
+     * Returns the dependencies of the task, if available.
+     *
+     * <p>The dependencies are only available for builds that use Gradle 5.1 or later.
+     *
+     * @return The dependencies of the task, if available; otherwise, {@code null}.
+     * @since 5.1
+     */
+    @Nullable
+    @Incubating
+    Set<? extends OperationDescriptor> getDependencies();
+
 }

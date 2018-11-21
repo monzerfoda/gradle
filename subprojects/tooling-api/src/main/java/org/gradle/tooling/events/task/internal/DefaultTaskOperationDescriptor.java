@@ -21,21 +21,32 @@ import org.gradle.tooling.events.internal.DefaultOperationDescriptor;
 import org.gradle.tooling.events.task.TaskOperationDescriptor;
 import org.gradle.tooling.internal.protocol.events.InternalTaskDescriptor;
 
+import javax.annotation.Nullable;
+import java.util.Set;
+
 /**
  * Implementation of the {@code TaskOperationDescriptor} interface.
  */
 public final class DefaultTaskOperationDescriptor extends DefaultOperationDescriptor implements TaskOperationDescriptor {
 
     private final String taskPath;
+    private final Set<OperationDescriptor> dependencies;
 
-    public DefaultTaskOperationDescriptor(InternalTaskDescriptor descriptor, String taskPath, OperationDescriptor parent) {
+    public DefaultTaskOperationDescriptor(InternalTaskDescriptor descriptor, OperationDescriptor parent, String taskPath, Set<OperationDescriptor> dependencies) {
         super(descriptor, parent);
         this.taskPath = taskPath;
+        this.dependencies = dependencies;
     }
 
     @Override
     public String getTaskPath() {
         return taskPath;
+    }
+
+    @Nullable
+    @Override
+    public Set<? extends OperationDescriptor> getDependencies() {
+        return dependencies;
     }
 
 }

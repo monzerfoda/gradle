@@ -73,6 +73,7 @@ import org.gradle.tooling.internal.protocol.events.InternalTaskDescriptor;
 import org.gradle.tooling.internal.protocol.events.InternalTaskFailureResult;
 import org.gradle.tooling.internal.protocol.events.InternalTaskResult;
 import org.gradle.tooling.internal.protocol.events.InternalTaskSkippedResult;
+import org.gradle.tooling.internal.protocol.events.InternalTaskWithDependenciesDescriptor;
 import org.gradle.tooling.internal.protocol.events.InternalTaskSuccessResult;
 import org.gradle.tooling.internal.protocol.events.InternalTestDescriptor;
 import org.gradle.tooling.internal.protocol.events.InternalTestFailureResult;
@@ -85,8 +86,10 @@ import org.gradle.tooling.internal.protocol.events.InternalTestSuccessResult;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Converts progress events sent from the tooling provider to the tooling client to the corresponding event types available on the public Tooling API, and broadcasts the converted events to the
@@ -228,7 +231,8 @@ public class BuildProgressListenerAdapter implements InternalBuildProgressListen
     }
 
     private TaskFinishEvent taskFinishedEvent(InternalOperationFinishedProgressEvent event) {
-        TaskOperationDescriptor descriptor = removeDescriptor(TaskOperationDescriptor.class, event.getDescriptor());
+        // do not remove task descriptors because they might be needed to describe subsequent tasks' dependencies
+        TaskOperationDescriptor descriptor = assertDescriptorType(TaskOperationDescriptor.class, getParentDescriptor(event.getDescriptor().getId()));
         return new DefaultTaskFinishEvent(event.getEventTime(), event.getDisplayName(), descriptor, toTaskResult((InternalTaskResult) event.getResult()));
     }
 
@@ -238,8 +242,7 @@ public class BuildProgressListenerAdapter implements InternalBuildProgressListen
     }
 
     private synchronized <T extends OperationDescriptor> T addDescriptor(InternalOperationDescriptor descriptor, T clientDescriptor) {
-        OperationDescriptor cached = this.descriptorCache.get(descriptor.getId());
-        if (cached != null) {
+        if (this.descriptorCache.containsKey(descriptor.getId())) {
             throw new IllegalStateException(String.format("Operation %s already available.", descriptor));
         }
         descriptorCache.put(descriptor.getId(), clientDescriptor);
@@ -285,7 +288,18 @@ public class BuildProgressListenerAdapter implements InternalBuildProgressListen
 
     private TaskOperationDescriptor toTaskDescriptor(InternalTaskDescriptor descriptor) {
         OperationDescriptor parent = getParentDescriptor(descriptor.getParentId());
-        return new DefaultTaskOperationDescriptor(descriptor, descriptor.getTaskPath(), parent);
+        Set<OperationDescriptor> dependencies = null;
+        if (descriptor instanceof InternalTaskWithDependenciesDescriptor) {
+            dependencies = new LinkedHashSet<OperationDescriptor>();
+            for (InternalOperationDescriptor dependency : ((InternalTaskWithDependenciesDescriptor) descriptor).getDependencies()) {
+                OperationDescriptor dependencyDescriptor = descriptorCache.get(dependency.getId());
+                // fault-tolerant so descriptors this version does not yet handle are silently ignored
+                if (dependencyDescriptor != null) {
+                    dependencies.add(dependencyDescriptor);
+                }
+            }
+        }
+        return new DefaultTaskOperationDescriptor(descriptor, parent, descriptor.getTaskPath(), dependencies);
     }
 
     private OperationDescriptor toDescriptor(InternalOperationDescriptor descriptor) {

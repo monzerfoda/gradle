@@ -18,6 +18,7 @@ package org.gradle.tooling.internal.provider.runner;
 
 import com.google.common.collect.Sets;
 import org.gradle.api.internal.TaskInternal;
+import org.gradle.api.internal.project.taskfactory.TaskIdentity;
 import org.gradle.api.internal.tasks.TaskStateInternal;
 import org.gradle.api.internal.tasks.execution.ExecuteTaskBuildOperationDetails;
 import org.gradle.initialization.BuildEventConsumer;
@@ -39,7 +40,13 @@ import org.gradle.tooling.internal.provider.events.DefaultTaskSuccessResult;
 import org.gradle.tooling.internal.provider.events.OperationResultPostProcessor;
 
 import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static java.util.stream.Collectors.toCollection;
 
 /**
  * Task listener that forwards all receiving events to the client via the provided {@code BuildEventConsumer} instance.
@@ -54,6 +61,7 @@ class ClientForwardingTaskOperationListener implements BuildOperationListener {
 
     // BuildOperationListener dispatch is not serialized
     private final Set<Object> skipEvents = Sets.newConcurrentHashSet();
+    private final Map<TaskIdentity<?>, DefaultTaskDescriptor> descriptors = new ConcurrentHashMap<>();
 
     ClientForwardingTaskOperationListener(BuildEventConsumer eventConsumer, BuildClientSubscriptions clientSubscriptions, BuildOperationListener delegate, OperationResultPostProcessor operationResultPostProcessor) {
         this.eventConsumer = eventConsumer;
@@ -103,12 +111,14 @@ class ClientForwardingTaskOperationListener implements BuildOperationListener {
     }
 
     private DefaultTaskDescriptor toTaskDescriptor(BuildOperationDescriptor buildOperation, TaskInternal task) {
-        Object id = buildOperation.getId();
-        String taskIdentityPath = buildOperation.getName();
-        String displayName = buildOperation.getDisplayName();
-        String taskPath = task.getIdentityPath().toString();
-        Object parentId = getParentId(buildOperation);
-        return new DefaultTaskDescriptor(id, taskIdentityPath, taskPath, displayName, parentId);
+        return descriptors.computeIfAbsent(task.getTaskIdentity(), taskIdentity -> {
+            Object id = buildOperation.getId();
+            String taskIdentityPath = buildOperation.getName();
+            String displayName = buildOperation.getDisplayName();
+            String taskPath = task.getIdentityPath().toString();
+            Object parentId = getParentId(buildOperation);
+            return new DefaultTaskDescriptor(id, taskIdentityPath, taskPath, displayName, parentId, computeTaskDependencies(task));
+        });
     }
 
     private Object getParentId(BuildOperationDescriptor buildOperation) {
@@ -133,6 +143,14 @@ class ClientForwardingTaskOperationListener implements BuildOperationListener {
                 return new DefaultTaskFailureResult(startTime, endTime, Collections.singletonList(DefaultFailure.fromThrowable(failure)));
             }
         }
+    }
+
+    private Set<DefaultTaskDescriptor> computeTaskDependencies(TaskInternal task) {
+        return task.getTaskDependencies().getDependencies(task).stream()
+            .map(dependency -> ((TaskInternal) dependency).getTaskIdentity())
+            .map(descriptors::get)
+            .filter(Objects::nonNull)
+            .collect(toCollection(LinkedHashSet::new));
     }
 
 }
